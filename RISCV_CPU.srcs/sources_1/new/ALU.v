@@ -36,27 +36,18 @@ input [4:0]ALUcontrol,input [31:0]A,B,input [2:0]branch_src,output reg[31:0]resu
     assign mul_uu=unsigned_A*unsigned_B;
     assign mul_su=signed_A*unsigned_B;
     assign start = divide_en && !busy && !done;
-    wire is_mul;
-    assign is_mul=(ALUcontrol==5'b01010)||(ALUcontrol==5'b01011)||(ALUcontrol==5'b01100)||(ALUcontrol==5'b01101);
-reg  mul_ready;
+    
     assign divwaitE=divide_en&&(!done);
     assign sign_divide_en=(ALUcontrol==5'b01110)||(ALUcontrol==5'b10000);
     assign divide_en=sign_divide_en||(ALUcontrol==5'b01111)||(ALUcontrol==5'b10001);
     assign div_A=(sign_divide_en&&A[31])?-A:A;
     assign div_B=(sign_divide_en&&B[31])?-B:B;
-    wire mul_start = is_mul && !mul_ready;
-    assign mulwaitE  = mul_start;
-    wire [65:0]mulresult;
-always @(posedge clk) begin
-    if (reset)
-        mul_ready <= 1'b0;
-    else
-        mul_ready <= mul_start;
-end
+
+    
+
     divider d(clk,reset,start,busy,done,div_A,div_B,result_divide,remainder);
     always@(*)
-    begin
-        
+    begin   
         case(ALUcontrol)
             5'b00000:result=A+B;//add
             5'b00001:result=A-B;//sub
@@ -78,20 +69,34 @@ end
             5'b10001:result=remainder;//remu无符号数取余
             default:result=32'b0;
         endcase
-    
     end
 
 wire a_signed = (ALUcontrol == 5'b01011) ||   // MULH
                 (ALUcontrol == 5'b01100);     // MULHSU
 wire b_signed = (ALUcontrol == 5'b01011);     // MULH
-
+//乘法分解成两拍，将两个操作数分解成高16位和低16位，第一拍分别相乘并暂停后续指令，第二拍恢复，给mul_result多一个周期的时间，
 wire signed [16:0] a_lo = {1'b0, A[15:0]};
 wire signed [16:0] b_lo = {1'b0, B[15:0]};
 wire signed [16:0] a_hi = {a_signed && A[31], A[31:16]};
 wire signed [16:0] b_hi = {b_signed && B[31], B[31:16]};
 
 reg signed [33:0] p_ll, p_hl, p_lh, p_hh;
-
+    wire is_mul;//判断是否是乘法指令
+    assign is_mul=(ALUcontrol==5'b01010)||(ALUcontrol==5'b01011)||(ALUcontrol==5'b01100)||(ALUcontrol==5'b01101);
+    reg  mul_ready;//
+    wire mul_start = is_mul && !mul_ready;//乘法计算第一拍为1
+    assign mulwaitE  = mul_start;//乘法计算第一拍，暂停后续指令
+    wire [65:0]mulresult;
+    always @(posedge clk) begin
+        if (reset)
+        mul_ready <= 1'b0;
+        else
+        mul_ready <= mul_start;
+    end
+//reset时，mul_ready=0,mul_start=0
+//is_mul=1时，mul_start=1,mul_ready=0，此时暂停
+//下一拍，mul_ready=1,此时mul_start=0，继续
+//再下一拍，mul_ready=0,mul_start=0,等待下一个
 always @(posedge clk) begin
     if (mul_start) begin
         p_ll <= a_lo * b_lo;
@@ -99,12 +104,13 @@ always @(posedge clk) begin
         p_lh <= a_lo * b_hi;
         p_hh <= a_hi * b_hi;
     end
-    //else mulresult<=p_ll+({{30{p_hl[33]}},p_hl}<<16)+({{30{p_lh[33]}},p_lh}<<16)+({{30{p_hh[33]}},p_hh}<<32);
+   
 end
 assign mulresult = {30'b0, p_ll}
                  + ({{30{p_hl[33]}}, p_hl} << 16)
                  + ({{30{p_lh[33]}}, p_lh} << 16)
                  + ({{30{p_hh[33]}}, p_hh} << 32);
+//处理分支指令判断
     always @* begin
     case (branch_src)
         3'b000: branch_en=(A == branch_B);                  // BEQ
@@ -115,7 +121,8 @@ assign mulresult = {30'b0, p_ll}
         3'b111: branch_en=(A >= branch_B);                  // BGEU
         default: branch_en= 1'b0;
     endcase
-end
+    end
+//处理除法的符号问题
     always@(posedge clk)//使用原始AB在除法器锁存操作数时取符号
     if(reset)begin
     divide_sign<=0;

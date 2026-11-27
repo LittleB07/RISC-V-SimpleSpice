@@ -9,23 +9,7 @@ module top #(parameter BOARD_INPUT = 1)(
     
     output led
 );
-    /*
-reg clk_div = 1'b0;
-wire clk;
-reg [9:0] count = 10'd0;
-always @(posedge clk_raw) begin
-    if (count == 10'd10-1) begin
-        count   <= 10'd0;
-        clk_div <= ~clk_div;
-    end else begin
-        count <= count + 10'b1;
-    end
-end
-BUFG cpu_clock_buffer (
-    .I(clk_div),
-    .O(clk)
-);
-*/
+    
     wire [31:0] pc, instr, data_addr, writedata, readdata, ram_readdata;
     wire write_en;
     wire [1:0] sdsrc;

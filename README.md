@@ -1,25 +1,6 @@
-# RISC-V SimpleSpice · 五级流水线 CPU
+# RISC-V 五级流水线 CPU（Basys3）
 
-面向 Basys3（Artix-7，`xc7a35tcpg236-1`）的单发射五级流水线 CPU。工程使用 Vivado 2019.1，附带可直接运行的 24 节点最短路径 C 程序。
-
-## 处理器实现
-
-- **RV32I 整数指令**支持整数运算、移位、比较、访存、条件分支和跳转。流水线通过前递、暂停和冲刷处理相关性。
-- **RISC-V M 扩展**实现全部 8 条乘除指令。多周期乘法器支持 `MUL`、`MULH`、`MULHSU`、`MULHU`，多周期除法器支持 `DIV`、`DIVU`、`REM`、`REMU`。
-- **动态分支预测**在取指阶段查询 64 项直接映射 BTB，以两位饱和计数器预测条件分支方向。在执行阶段更新预测信息，预测失败时冲刷错误路径并修正 PC。
-
-## FPGA 时序
-
-Basys3 使用 100 MHz 系统时钟，时钟周期约束为 10.000 ns。Vivado 布线后报告显示所有已指定时序约束均满足。
-
-| 指标 | 布线后结果 |
-| --- | ---: |
-| 建立时间裕量 WNS | +0.309 ns |
-| 建立时间总负裕量 TNS | 0.000 ns |
-| 保持时间裕量 WHS | +0.028 ns |
-| 建立 / 保持时间违例端点 | 0 / 0 |
-
-[查看 Vivado 布线后时序报告](reports/top_timing_summary_routed.rpt)
+当前版本是运行在 Basys3 FPGA 上的单发射、五级流水线 RISC-V 课程项目。使用 Vivado 2019.1，器件为 `xc7a35tcpg236-1`。包含流水线相关处理、乘法运算、板上开关输入、数码管显示，以及用 C 编译的 24 节点最短路径演示。支持RISCV整数指令和乘法指令
 
 ## 文件
 
@@ -44,4 +25,6 @@ Basys3 使用 100 MHz 系统时钟，时钟周期约束为 10.000 ns。Vivado �
 
 在 Vivado 中打开 `RISCV_CPU.xpr`，设 `tb_cpu` 为仿真顶层，运行 `Run All`。测试比较 Floyd–Warshall 参考结果与 CPU 运行 Dijkstra 的输出，并打印各起点周期数。若 Vivado 未找到 `shortest_path_riscvtest.txt`，将 `software/shortest_path_riscvtest.txt` 加入仿真源并标记为 Memory Initialization File。
 
-板上先用 `SW4:0` 选择起点并按住复位，再松开复位等待 LED0 亮。随后 `SW4:0` 选择终点（0–23）；`SW8:7` 选择数码管显示：`00` 起点、`01` 起点到终点距离、`10` 运行时间（微秒）、`11` 全部 24 个节点的最短距离总和。详细验证数据和内存映射见 [software/SHORTEST_PATH.md](software/SHORTEST_PATH.md)。
+板上先用 `SW6:0` 选择起点并按住复位，再松开复位等待 LED0 亮。随后 `SW4:0` 选择终点（0–23）；`SW8:7` 选择数码管显示：`00` 起点、`01` 起点到终点距离、`10` 运行时间（微秒）、`11` 全部 24 个节点的最短距离总和。详细验证数据和内存映射见 [software/SHORTEST_PATH.md](software/SHORTEST_PATH.md)。
+
+当前指令镜像下，起点 0、终点 16 的板上演示结果为距离 4、总和 508、约 736 微秒。当前板上时钟为 50 MHz；在变更设计或编译选项后应重新测量周期数和时序。
